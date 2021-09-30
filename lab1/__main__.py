@@ -51,7 +51,7 @@ class Graph:
     def __str__(self) -> str:
         return f'Vertices: {self.vertices}\n\nEdges: {self.edges}\n\nAdjacency Matrix: {self.adj}'
 
-    def BFS(self, startVertex, endVertex):
+    def BFS(self, startVertex, endVertex, verbose=False):
         visited = dict()
         queue = []
         visited[startVertex] = 0
@@ -65,7 +65,7 @@ class Graph:
                 print('Solution:', ' -> '.join(path))
                 return path
 
-            print(f'Expanding: {vertex}')
+            if verbose: print(f'Expanding: {vertex}')
 
             for adjacent_vertex in sorted(self.adj[vertex]):
                 if adjacent_vertex not in visited:
@@ -75,10 +75,10 @@ class Graph:
 
         return visited
 
-    def ID(self):
+    def ID(self, startVertex, endVertex, depth, verbose=False):
         pass
 
-    def ASTAR(self):
+    def ASTAR(self, startVertex, endVertex, verbose=False):
         pass
 
 
@@ -107,11 +107,10 @@ def parse_graph_file(filename):
 if __name__ == '__main__':
     args = get_args()
     G = parse_graph_file(args.graph_file)
-    print(args)
 
     if args.alg == 'BFS':
-        res = G.BFS(args.start, args.end)
+        res = G.BFS(args.start, args.end, verbose=args.v)
     elif args.alg == 'ID':
-        res = G.ID(args.start, args.end)
+        res = G.ID(args.start, args.end, verbose=args.v)
     elif args.alg == 'ASTAR':
-        res = G.ASTAR(args.start, args.end)
+        res = G.ASTAR(args.start, args.end, verbose=args.v)
