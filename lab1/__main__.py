@@ -43,14 +43,35 @@ class Graph:
             self.adj[p].update(q)
             self.adj[q].update(p)
 
-    def get_edge(self, *vertices):
+    def get_edge_weight(self, *vertices):
         return self.edges[frozenset(vertices)]
 
     def __str__(self) -> str:
         return f'Vertices: {self.vertices}\n\nEdges: {self.edges}\n\nAdjacency Matrix: {self.adj}'
 
-    def BFS(self):
-        pass
+    def BFS(self, startVertex, endVertex):
+        visited = dict()
+        queue = []
+        visited[startVertex] = 0
+        queue.append(startVertex)
+
+        while queue:
+            path = queue.pop(0)
+            vertex = path[-1]
+
+            if vertex == endVertex:  # Search complete
+                print('Solution:', ' -> '.join(path))
+                return path
+
+            print(f'Expanding: {vertex}')
+
+            for adjacent_vertex in sorted(self.adj[vertex]):
+                if adjacent_vertex not in visited:
+                    weight = self.get_edge_weight(vertex, adjacent_vertex)
+                    queue.append([*path, adjacent_vertex])
+                    visited[adjacent_vertex] = weight
+
+        return visited
 
     def ID(self):
         pass
@@ -81,4 +102,8 @@ def parse_graph_file(filename):
 if __name__ == '__main__':
     args = get_args()
     G = parse_graph_file(args.graph_file)
-    print(G)
+    print(args)
+    # start, end, alg, depth = args
+    # start, end, alg,
+    if args.alg == 'BFS':
+        res = G.BFS(args.start, args.end)
