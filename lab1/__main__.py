@@ -34,11 +34,13 @@ class Graph:
     def add_vertex(self, *vertices):
         for v in vertices:
             self.vertices[v[0]] = [int(x) for x in v[1:]]
+            # Initialize adjacency matrix
             self.adj[v[0]] = set()
 
     def add_edge(self, *edges):
         for e in edges:
             self.edges[e] = self.compute_edge_length(e)
+            # Update adjacency matrix
             p, q = tuple(e)
             self.adj[p].update(q)
             self.adj[q].update(p)
@@ -84,17 +86,20 @@ def parse_graph_file(filename):
     G = Graph()
     with open(filename) as f:
         lines = f.readlines()
+        # Temp set to store edges
         edges = set()
         for line in lines:
             line = line.strip()
+            # Skip empty lines & comments
             if not line or line[0] == '#' or len(line) < 3:
                 continue
             else:
                 items = line.split(' ')
-                if len(items) == 2:
+                if len(items) == 2:  # Edge
                     edges.add(frozenset(items))
-                if len(items) == 3:
+                if len(items) == 3:  # Vertex
                     G.add_vertex(tuple(items))
+        # Add edges after vertices
         G.add_edge(*edges)
     return G
 
@@ -103,7 +108,10 @@ if __name__ == '__main__':
     args = get_args()
     G = parse_graph_file(args.graph_file)
     print(args)
-    # start, end, alg, depth = args
-    # start, end, alg,
+
     if args.alg == 'BFS':
         res = G.BFS(args.start, args.end)
+    elif args.alg == 'ID':
+        res = G.ID(args.start, args.end)
+    elif args.alg == 'ASTAR':
+        res = G.ASTAR(args.start, args.end)
