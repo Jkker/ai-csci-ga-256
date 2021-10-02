@@ -15,6 +15,7 @@ def get_args():
     parser.add_argument(
         "-depth",
         type=int,
+        default=1,
         help=
         "Used only for iterative-deepening, that indicates the initial search depth, with a default increase of 1 after that"
     )
