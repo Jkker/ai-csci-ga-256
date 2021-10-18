@@ -3,6 +3,7 @@ import sys
 from math import sqrt
 import queue as lib_queue
 from types import TracebackType
+from copy import deepcopy
 
 
 class N:
@@ -11,8 +12,11 @@ class N:
         self.left = left  # Initialize
         self.right = right  # Initialize
 
-    # Visualize the expression tree
     def __str__(self):
+        return self.val
+
+    # Visualize the expression tree
+    def print_tree(self):
         def _build_tree_string(root, curr_index, index=False, delimiter='-'):
             if root is None:
                 return [], 0, 0, 0
@@ -74,20 +78,62 @@ class N:
         lines = _build_tree_string(self, 0, False, '-')[0]
         return '\n' + '\n'.join((line.rstrip() for line in lines))
 
+    def print_inorder(self, op=['<=>', '=>', '|', '&']):
+        def _recur(root):
+            if not root: return
+            if root.left:
+                print('(', end='')
+                _recur(root.left)
+            print(f' {root.val} ' if root.val in op else root.val, end='')
+            if root.right:
+                _recur(root.right)
+                print(')', end='')
 
-def inorder(root: N, op=['<=>', '=>', '|', '&']):
-    if root.left:
-        print('(', end='')
-        inorder(root.left)
-    print(f' {root.val} ' if root.val in op else root.val, end='')
-    if root.right:
-        inorder(root.right)
-        print(')', end='')
+        _recur(self)
+        print()
+
+    def toCNF(self):
+        def iff(node: N):
+            if not node.val == '<=>': return node
+
+            return N(N(node.left, '=>', node.right), '&',
+                     N(node.right, '=>', node.left))
+
+        def implication(node: N):
+            if not node.val == '=>': return node
+            return N(N(None, '!', node.left), '|', node.right)
+
+        def de_morgan(node: N):
+            if not node.val == '!': return node
+            if node.right.val == '|':
+                return N(N(None, '!', node.right.left), '&',
+                         N(None, '!', node.right.right))
+            if node.right.val == '&':
+                return N(N(None, '!', node.right.left), '|',
+                         N(None, '!', node.right.right))
+
+        def _dfs(node: N, func):
+            if node.val in ['<=>', '=>', '|', '&', '!']:
+                node.left = _dfs(node.left, func)
+                node.right = _dfs(node.right, func)
+                node = func(node)
+            return node
+
+        tmp = _dfs(self, iff)
+        print('Eliminated <=>')
+        tmp.print_inorder()
+        tmp = _dfs(tmp, implication)
+        print('Eliminated =>')
+        tmp.print_inorder()
+        # tmp = _dfs(tmp, de_morgan)
+        # tmp.print_inorder()
+        return tmp
 
 
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-v", action='store_true', help="verbose mode")
+    parser.add_argument("-t", action='store_true', help="test mode")
     parser.add_argument("-mode",
                         help="Program's mode",
                         choices=['cnf', 'dpll', 'solver'])
@@ -114,33 +160,22 @@ def parse_expr_file(filename):
         return [parse_expr(line.strip()) for line in f.readlines()]
 
 
-def bnf2cnf(bnf_expr):
-    def iff(node: N):
-        if node.val == '<=>':
-            return N(N(node.left, '->', node.right), '&',
-                     N(node.right, '->', node.left))
-        return node
-
-    def implication(node: N):
-        if node.val == '=>':
-            return N(N(None, '!', node.left), '|', node.right)
-        return node
-
-    pass
+def test():
+    # d = N(None, '!', N(N(val='A'), '&', N(val='B')))
+    d = N(N(val='A'), '<=>', N(val='B'))
+    d.print_inorder()
+    d.toCNF().print_inorder()
 
 
 if __name__ == '__main__':
     args = get_args()
     expr_list = parse_expr_file(args.input_file)
-
-    idx = 0
-    print(expr_list[idx])
-    # inorder(expr_list[idx])
-    inorder(expr_list[idx])
-
-    if args.mode == 'cnf':
-        pass
-    elif args.mode == 'dpll':
-        pass
-    elif args.mode == 'solver':
-        pass
+    if args.t:
+        test()
+    else:
+        if args.mode == 'cnf':
+            pass
+        elif args.mode == 'dpll':
+            pass
+        elif args.mode == 'solver':
+            pass
