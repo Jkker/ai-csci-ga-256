@@ -1,5 +1,7 @@
 import argparse
 
+BNF_OPERATORS = ['<=>', '=>', '|', '&', '!']
+
 
 class N:
     def __init__(self, left=None, val=None, right=None):
@@ -75,7 +77,7 @@ class N:
         if print_output: print(output)
         return output
 
-    def inorder_print(self, title=None, op=['<=>', '=>', '|', '&']):
+    def print(self, title=None, op=['<=>', '=>', '|', '&']):
         def _recur(root):
             if not root: return
             if root.left:
@@ -98,7 +100,7 @@ class N:
 
         return _recur(self)
 
-    def preorder_func_call(self, func, op=['<=>', '=>', '|', '&', '!']):
+    def preorder_call(self, func, op=BNF_OPERATORS):
         def _recur(node: N):
             nonlocal func
             if node and node.val in op:
@@ -191,16 +193,20 @@ class N:
                 return False
 
             res = _recur(root)
-            if res and verbose: root.inorder_print('remove contradiction')
+            if res and verbose: root.print('remove contradiction')
             return res
 
         def currify(node: N, *func_list):
             res = node
             for func in func_list:
-                res = res.preorder_func_call(func)
-                if verbose: res.inorder_print(func.__name__)
+                res = res.preorder_call(func)
+                if verbose: res.print(func.__name__)
                 if verbose: res.visualize()
             return res
+
+        if verbose:
+            self.print('parsed input expression')
+            self.visualize()
 
         res = currify(self, eliminate_iff, eliminate_implication,
                       apply_demorgans_law, distribute_or, distribute_or)
@@ -227,50 +233,36 @@ def get_args():
     return parser.parse_args()
 
 
-def parse_bnf(s: str, op=['<=>', '=>', '|', '&', '!']) -> N:
+def bnf_parser(s: str, op=BNF_OPERATORS) -> N:
     if not op:
         return N(val=s.strip())
     idx = s.rfind(op[0])  # rightmost
     if idx == -1:
         # 1st operator not found
-        return parse_bnf(s, op[1:])
-    return N(parse_bnf(s[:idx]), op[0], parse_bnf(s[idx + len(op[0]):]))
+        return bnf_parser(s, op[1:])
+    return N(bnf_parser(s[:idx]), op[0], bnf_parser(s[idx + len(op[0]):]))
 
 
-def parse_expr_file(filename):
+def parse_file(filename, parser):
     with open(filename) as f:
-        return [parse_bnf(line.strip()) for line in f.readlines()]
+        return [parser(line.strip()) for line in f.readlines()]
 
 
-def test():
-    d = N(None, '!', N(N(val='A'), '&', N(val='B')))
-    # d = N(N(val='A'), '<=>', N(val='B'))
-    d.inorder_print()
-    cnf = d.to_cnf()
-    print('CNF:\t', end='')
-    cnf.inorder_print()
-    print()
+def bnf2cnf(bnf_list, verbose=False) -> list[N]:
+    return sum([bnf.to_cnf(verbose=verbose) for bnf in bnf_list], [])
 
 
 if __name__ == '__main__':
     args = get_args()
-    expr_list = parse_expr_file(args.input_file)
 
-    if args.t:
-        test()
+    if args.mode == 'cnf':
+        cnf_list = bnf2cnf(parse_file(args.input_file, bnf_parser),
+                           verbose=args.v)
+        for s in cnf_list:
+            print(s.to_cnf_str())
 
-    else:
-        if args.mode == 'cnf':
-            cnf_list = []
-            for expr in expr_list:
-                if args.v:
-                    expr.inorder_print('parsed input expression')
-                    expr.visualize()
-                cnf_list = [*cnf_list, *expr.to_cnf(verbose=args.v)]
-            for s in cnf_list:
-                print(s.to_cnf_str())
-
-        elif args.mode == 'dpll':
-            pass
-        elif args.mode == 'solver':
-            pass
+    elif args.mode == 'dpll':
+        pass
+    elif args.mode == 'solver':
+        cnf_list = bnf2cnf(parse_file(args.input_file, bnf_parser),
+                           verbose=args.v)
