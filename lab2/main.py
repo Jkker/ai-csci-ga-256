@@ -8,15 +8,15 @@ from copy import deepcopy
 
 class N:
     def __init__(self, left=None, val=None, right=None):
-        self.val = val  # Assign data
-        self.left = left  # Initialize
-        self.right = right  # Initialize
+        self.val = val
+        self.left = left
+        self.right = right
 
     def __str__(self):
         return self.val
 
     # Visualize the expression tree
-    def print_tree(self):
+    def visualize(self, print_output=True):
         def _build_tree_string(root, curr_index, index=False, delimiter='-'):
             if root is None:
                 return [], 0, 0, 0
@@ -76,9 +76,11 @@ class N:
             return new_box, len(new_box[0]), new_root_start, new_root_end
 
         lines = _build_tree_string(self, 0, False, '-')[0]
-        return '\n' + '\n'.join((line.rstrip() for line in lines))
+        output = '\n' + '\n'.join((line.rstrip() for line in lines))
+        if print_output: print(output)
+        return output
 
-    def print_inorder(self, op=['<=>', '=>', '|', '&']):
+    def inorder_print(self, title=None, op=['<=>', '=>', '|', '&']):
         def _recur(root):
             if not root: return
             if root.left:
@@ -87,47 +89,116 @@ class N:
             print(f' {root.val} ' if root.val in op else root.val, end='')
             if root.right:
                 _recur(root.right)
-                print(')', end='')
+                if not root.val == '!': print(')', end='')
 
+        if title: print(title, end=':\t')
         _recur(self)
         print()
 
-    def toCNF(self):
-        def iff(node: N):
-            if not node.val == '<=>': return node
+    def to_cnf_str(self, title=None, op=['|']):
+        def _recur(root):
+            if not root: return ''
+            return _recur(root.left) + (' ' if root.val in op else
+                                        root.val) + _recur(root.right)
 
+        return _recur(self)
+
+    def preorder_func_call(self, func, op=['<=>', '=>', '|', '&', '!']):
+        def _recur(node: N):
+            nonlocal func
+            if node and node.val in op:
+                node = func(node)
+                node.left = _recur(node.left)
+                node.right = _recur(node.right)
+            return node
+
+        return _recur(self)
+
+    def to_cnf(self, verbose=False):
+        def eliminate_iff(node: N):
+            if not node.val == '<=>': return node
             return N(N(node.left, '=>', node.right), '&',
                      N(node.right, '=>', node.left))
 
-        def implication(node: N):
+        def eliminate_implication(node: N):
             if not node.val == '=>': return node
             return N(N(None, '!', node.left), '|', node.right)
 
-        def de_morgan(node: N):
-            if not node.val == '!': return node
-            if node.right.val == '|':
-                return N(N(None, '!', node.right.left), '&',
-                         N(None, '!', node.right.right))
-            if node.right.val == '&':
-                return N(N(None, '!', node.right.left), '|',
-                         N(None, '!', node.right.right))
-
-        def _dfs(node: N, func):
-            if node.val in ['<=>', '=>', '|', '&', '!']:
-                node.left = _dfs(node.left, func)
-                node.right = _dfs(node.right, func)
-                node = func(node)
+        def apply_demorgan_law(node: N):
+            if node.val == '!':
+                if node.right.val == '|':
+                    return N(N(None, '!', node.right.left), '&',
+                             N(None, '!', node.right.right))
+                if node.right.val == '&':
+                    return N(N(None, '!', node.right.left), '|',
+                             N(None, '!', node.right.right))
+                if node.right.val == '!':
+                    return node.right.right
             return node
 
-        tmp = _dfs(self, iff)
-        print('Eliminated <=>')
-        tmp.print_inorder()
-        tmp = _dfs(tmp, implication)
-        print('Eliminated =>')
-        tmp.print_inorder()
-        # tmp = _dfs(tmp, de_morgan)
-        # tmp.print_inorder()
-        return tmp
+        def distribute_or(node: N):
+            if node.val == '|' and node.right.val == '&':
+                return N(N(node.left, '|', node.right.left), '&',
+                         N(node.left, '|', node.right.right))
+            if node.val == '|' and node.left.val == '&':
+                return N(N(node.left.left, '|', node.right), '&',
+                         N(node.left.right, '|', node.right))
+            return node
+
+        def seperate_conjunctions(root: N):
+            queue = lib_queue.Queue()
+            queue.put(root)
+            res = []
+            while not queue.empty():
+                node = queue.get()
+                if node.val == '&':
+                    if node.left: queue.put(node.left)
+                    if node.right: queue.put(node.right)
+                else: res.append(node)
+            return res
+
+        def is_contradiction(root: N):
+            positive = set()
+            negative = set()
+
+            def _recur(node: N):
+                if not node: return False
+
+                if node.val == '|':
+                    return _recur(node.left) or _recur(node.right)
+
+                elif node.val == '!':
+                    if node.right.val in positive:
+                        return True
+                    negative.add(node.right.val)
+
+                else:  # leaf
+                    if node.val in negative:
+                        return True
+                    positive.add(node.val)
+
+                return False
+
+            res = _recur(root)
+            if res and verbose: root.inorder_print('remove contradiction')
+            return res
+
+        def currify(node: N, *func_list):
+            res = node
+            for func in func_list:
+                res = res.preorder_func_call(func)
+                if verbose: res.inorder_print(func.__name__)
+                if verbose: res.visualize()
+            return res
+
+        res = currify(self, eliminate_iff, eliminate_implication,
+                      apply_demorgan_law, distribute_or, distribute_or)
+
+        cnf_list = seperate_conjunctions(res)
+
+        cnf_list = [s for s in cnf_list if not is_contradiction(s)]
+
+        return cnf_list
 
 
 def get_args():
@@ -161,20 +232,32 @@ def parse_expr_file(filename):
 
 
 def test():
-    # d = N(None, '!', N(N(val='A'), '&', N(val='B')))
-    d = N(N(val='A'), '<=>', N(val='B'))
-    d.print_inorder()
-    d.toCNF().print_inorder()
+    d = N(None, '!', N(N(val='A'), '&', N(val='B')))
+    # d = N(N(val='A'), '<=>', N(val='B'))
+    d.inorder_print()
+    cnf = d.to_cnf()
+    print('CNF:\t', end='')
+    cnf.inorder_print()
+    print()
 
 
 if __name__ == '__main__':
     args = get_args()
     expr_list = parse_expr_file(args.input_file)
+
     if args.t:
         test()
+
     else:
         if args.mode == 'cnf':
-            pass
+            cnf_list = []
+            for expr in expr_list:
+                expr.inorder_print()
+                expr.visualize()
+                cnf_list = [*cnf_list, *expr.to_cnf()]
+            for s in cnf_list:
+                print(s.to_cnf_str())
+
         elif args.mode == 'dpll':
             pass
         elif args.mode == 'solver':
