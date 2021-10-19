@@ -1,9 +1,4 @@
 import argparse
-import sys
-from math import sqrt
-import queue as lib_queue
-from types import TracebackType
-from copy import deepcopy
 
 
 class N:
@@ -124,7 +119,7 @@ class N:
             if not node.val == '=>': return node
             return N(N(None, '!', node.left), '|', node.right)
 
-        def apply_demorgan_law(node: N):
+        def apply_demorgans_law(node: N):
             if node.val == '!':
                 if node.right.val == '|':
                     return N(N(None, '!', node.right.left), '&',
@@ -145,15 +140,31 @@ class N:
                          N(node.left.right, '|', node.right))
             return node
 
-        def seperate_conjunctions(root: N):
-            queue = lib_queue.Queue()
-            queue.put(root)
+        def distribute_or_bfs(root: N):
+            unprocessed = [root]
             res = []
-            while not queue.empty():
-                node = queue.get()
+            while unprocessed:
+                node = unprocessed.pop()
+                if node.val == '|':
+                    if node.right.val == '&':
+                        unprocessed.append(N(node.left, '|', node.right.left))
+                        unprocessed.append(N(node.left, '|', node.right.right))
+                    if node.left.val == '&':
+                        unprocessed.append(N(node.left.left, '|', node.right))
+                        unprocessed.append(N(node.left.right, '|', node.right))
+                else:
+                    res.append(node)
+            return res
+
+        def seperate_conjunctions(root: N):
+            unprocessed = [root]
+            res = []
+            while unprocessed:
+                node = unprocessed.pop()
+
                 if node.val == '&':
-                    if node.left: queue.put(node.left)
-                    if node.right: queue.put(node.right)
+                    if node.left: unprocessed.append(node.left)
+                    if node.right: unprocessed.append(node.right)
                 else: res.append(node)
             return res
 
@@ -192,7 +203,7 @@ class N:
             return res
 
         res = currify(self, eliminate_iff, eliminate_implication,
-                      apply_demorgan_law, distribute_or, distribute_or)
+                      apply_demorgans_law, distribute_or, distribute_or)
 
         cnf_list = seperate_conjunctions(res)
 
@@ -216,19 +227,19 @@ def get_args():
     return parser.parse_args()
 
 
-def parse_expr(s: str, op=['<=>', '=>', '|', '&', '!']) -> N:
+def parse_bnf(s: str, op=['<=>', '=>', '|', '&', '!']) -> N:
     if not op:
         return N(val=s.strip())
     idx = s.rfind(op[0])  # rightmost
     if idx == -1:
         # 1st operator not found
-        return parse_expr(s, op[1:])
-    return N(parse_expr(s[:idx]), op[0], parse_expr(s[idx + len(op[0]):]))
+        return parse_bnf(s, op[1:])
+    return N(parse_bnf(s[:idx]), op[0], parse_bnf(s[idx + len(op[0]):]))
 
 
 def parse_expr_file(filename):
     with open(filename) as f:
-        return [parse_expr(line.strip()) for line in f.readlines()]
+        return [parse_bnf(line.strip()) for line in f.readlines()]
 
 
 def test():
@@ -252,9 +263,10 @@ if __name__ == '__main__':
         if args.mode == 'cnf':
             cnf_list = []
             for expr in expr_list:
-                expr.inorder_print()
-                expr.visualize()
-                cnf_list = [*cnf_list, *expr.to_cnf()]
+                if args.v:
+                    expr.inorder_print('parsed input expression')
+                    expr.visualize()
+                cnf_list = [*cnf_list, *expr.to_cnf(verbose=args.v)]
             for s in cnf_list:
                 print(s.to_cnf_str())
 
