@@ -1,4 +1,5 @@
 import argparse
+import queue as libqueue
 
 BNF_OPERATORS = ['<=>', '=>', '|', '&', '!']
 
@@ -111,6 +112,25 @@ class N:
 
         return _recur(self)
 
+    def satisfy_condition(self, condition):
+        q = libqueue.Queue()
+        q.put(self)
+        while not q.empty():
+            node = q.get()
+            if condition(node):
+                return True
+            else:
+                if node.left: q.put(node.left)
+                if node.right: q.put(node.right)
+
+    def currify_preorder_call(self, *func_list, verbose=False):
+        res = self
+        for func in func_list:
+            res = res.preorder_call(func)
+            if verbose: res.print(func.__name__)
+            if verbose: res.visualize()
+        return res
+
     def to_cnf(self, verbose=False):
         def eliminate_iff(node: N):
             if not node.val == '<=>': return node
@@ -141,22 +161,6 @@ class N:
                 return N(N(node.left.left, '|', node.right), '&',
                          N(node.left.right, '|', node.right))
             return node
-
-        def distribute_or_bfs(root: N):
-            unprocessed = [root]
-            res = []
-            while unprocessed:
-                node = unprocessed.pop()
-                if node.val == '|':
-                    if node.right.val == '&':
-                        unprocessed.append(N(node.left, '|', node.right.left))
-                        unprocessed.append(N(node.left, '|', node.right.right))
-                    if node.left.val == '&':
-                        unprocessed.append(N(node.left.left, '|', node.right))
-                        unprocessed.append(N(node.left.right, '|', node.right))
-                else:
-                    res.append(node)
-            return res
 
         def seperate_conjunctions(root: N):
             unprocessed = [root]
@@ -196,20 +200,18 @@ class N:
             if res and verbose: root.print('remove contradiction')
             return res
 
-        def currify(node: N, *func_list):
-            res = node
-            for func in func_list:
-                res = res.preorder_call(func)
-                if verbose: res.print(func.__name__)
-                if verbose: res.visualize()
-            return res
-
         if verbose:
             self.print('parsed input expression')
             self.visualize()
 
-        res = currify(self, eliminate_iff, eliminate_implication,
-                      apply_demorgans_law, distribute_or, distribute_or)
+        res = self.currify_preorder_call(eliminate_iff,
+                                         eliminate_implication,
+                                         apply_demorgans_law,
+                                         verbose=verbose)
+
+        while res.satisfy_condition(lambda node: node.val == '|' and (
+                node.right.val == '&' or node.left.val == '&')):
+            res = res.currify_preorder_call(distribute_or, verbose=verbose)
 
         cnf_list = seperate_conjunctions(res)
 
