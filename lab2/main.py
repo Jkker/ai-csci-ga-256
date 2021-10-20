@@ -1,19 +1,24 @@
 import argparse
 
-BNF_OPERATORS = ['<=>', '=>', '|', '&', '!']
+BNF_OPERATORS = ['<=>', '=>', '|', '&']
 
 
 class N:
-    def __init__(self, left=None, val=None, right=None):
+    def __init__(self, left=None, val=None, right=None, neg=False):
+        self.neg = neg
         self.val = val
         self.left = left
         self.right = right
+        self.is_operator = val in BNF_OPERATORS
 
     def __str__(self):
-        return self.val
+        return f' {self.val} ' if self.is_operator else self.val
 
     # Visualize the expression tree
     def visualize(self, print_output=True):
+        def node2str(node):
+            return f'!{node.val}' if node.neg else f'{node.val}'
+
         def _build_tree_string(root, curr_index, index=False, delimiter='-'):
             if root is None:
                 return [], 0, 0, 0
@@ -21,9 +26,10 @@ class N:
             line1 = []
             line2 = []
             if index:
-                node_repr = '{}{}{}'.format(curr_index, delimiter, root.val)
+                node_repr = '{}{}{}'.format(curr_index, delimiter,
+                                            node2str(root))
             else:
-                node_repr = str(root.val)
+                node_repr = node2str(root)
 
             new_root_width = gap_size = len(node_repr)
 
@@ -77,33 +83,39 @@ class N:
         if print_output: print(output)
         return output
 
-    def print(self, title=None, op=['<=>', '=>', '|', '&']):
+    def print(self, title=None):
         def _recur(root):
             if not root: return
+            if root.neg: print('!', end='')
             if root.left:
                 print('(', end='')
                 _recur(root.left)
-            print(f' {root.val} ' if root.val in op else root.val, end='')
+            print(root, end='')
             if root.right:
                 _recur(root.right)
-                if not root.val == '!': print(')', end='')
+                print(')', end='')
 
         if title: print(title, end=':\t')
         _recur(self)
         print()
 
+    def negate(self):
+        self.neg = not self.neg
+        return self
+
     def to_cnf_str(self, title=None, op=['|']):
         def _recur(root):
             if not root: return ''
-            return _recur(root.left) + (' ' if root.val in op else
-                                        root.val) + _recur(root.right)
+            return _recur(root.left) + (' ' if root.is_operator else f'!{root}'
+                                        if root.neg else str(root)) + _recur(
+                                            root.right)
 
         return _recur(self)
 
-    def preorder_call(self, func, op=BNF_OPERATORS):
+    def preorder_call(self, func):
         def _recur(node: N):
             nonlocal func
-            if node and node.val in op:
+            if node and node.is_operator:
                 node = func(node)
                 node.left = _recur(node.left)
                 node.right = _recur(node.right)
@@ -111,27 +123,58 @@ class N:
 
         return _recur(self)
 
+    def satisfy_condition(self, condition):
+        q = [self]
+        while q:
+            node = q.pop(0)
+            if condition(node):
+                return True
+            else:
+                if node.left: q.append(node.left)
+                if node.right: q.append(node.right)
+
+    def currify_preorder_call(self, *func_list, verbose=False):
+        res = self
+        for func in func_list:
+            res = res.preorder_call(func)
+            if verbose: res.print(func.__name__)
+            if verbose: res.visualize()
+        return res
+
     def to_cnf(self, verbose=False):
         def eliminate_iff(node: N):
             if not node.val == '<=>': return node
             return N(N(node.left, '=>', node.right), '&',
-                     N(node.right, '=>', node.left))
+                     N(node.right, '=>', node.left), node.neg)
 
         def eliminate_implication(node: N):
             if not node.val == '=>': return node
-            return N(N(None, '!', node.left), '|', node.right)
+            return N(node.left.negate(), '|', node.right)
 
         def apply_demorgans_law(node: N):
-            if node.val == '!':
-                if node.right.val == '|':
-                    return N(N(None, '!', node.right.left), '&',
-                             N(None, '!', node.right.right))
-                if node.right.val == '&':
-                    return N(N(None, '!', node.right.left), '|',
-                             N(None, '!', node.right.right))
-                if node.right.val == '!':
-                    return node.right.right
+            if node.neg:
+                if node.val == '|':
+                    return N(node.left.negate(), '&', node.right.negate())
+                if node.val == '&':
+                    return N(node.left.negate(), '|', node.right.negate())
             return node
+
+        def apply_demorgans_law_bfs(root: N):
+            unprocessed = [root]
+            while unprocessed:
+                node = unprocessed.pop()
+                if node.neg:
+                    if node.val == '|':
+                        unprocessed.append(
+                            N(node.left.negate(), '&', node.right.negate()))
+                    if node.val == '&':
+                        unprocessed.append(
+                            N(node.left.negate(), '|', node.right.negate()))
+                else:
+                    if node.left: unprocessed.append(node.left)
+                    if node.right: unprocessed.append(node.right)
+
+            pass
 
         def distribute_or(node: N):
             if node.val == '|' and node.right.val == '&':
@@ -141,22 +184,6 @@ class N:
                 return N(N(node.left.left, '|', node.right), '&',
                          N(node.left.right, '|', node.right))
             return node
-
-        def distribute_or_bfs(root: N):
-            unprocessed = [root]
-            res = []
-            while unprocessed:
-                node = unprocessed.pop()
-                if node.val == '|':
-                    if node.right.val == '&':
-                        unprocessed.append(N(node.left, '|', node.right.left))
-                        unprocessed.append(N(node.left, '|', node.right.right))
-                    if node.left.val == '&':
-                        unprocessed.append(N(node.left.left, '|', node.right))
-                        unprocessed.append(N(node.left.right, '|', node.right))
-                else:
-                    res.append(node)
-            return res
 
         def seperate_conjunctions(root: N):
             unprocessed = [root]
@@ -171,21 +198,23 @@ class N:
             return res
 
         def is_contradiction(root: N):
+            if verbose:
+                print(f'Checking if {root.to_cnf_str()} is a contradiction')
             positive = set()
             negative = set()
 
             def _recur(node: N):
                 if not node: return False
 
-                if node.val == '|':
+                if node.is_operator:
                     return _recur(node.left) or _recur(node.right)
 
-                elif node.val == '!':
-                    if node.right.val in positive:
+                elif node.neg:
+                    if node.val in positive:
                         return True
-                    negative.add(node.right.val)
+                    negative.add(node.val)
 
-                else:  # leaf
+                else:  # positive
                     if node.val in negative:
                         return True
                     positive.add(node.val)
@@ -193,29 +222,39 @@ class N:
                 return False
 
             res = _recur(root)
-            if res and verbose: root.print('remove contradiction')
-            return res
-
-        def currify(node: N, *func_list):
-            res = node
-            for func in func_list:
-                res = res.preorder_call(func)
-                if verbose: res.print(func.__name__)
-                if verbose: res.visualize()
+            if res and verbose: print('No!')
             return res
 
         if verbose:
             self.print('parsed input expression')
             self.visualize()
 
-        res = currify(self, eliminate_iff, eliminate_implication,
-                      apply_demorgans_law, distribute_or, distribute_or)
+        res = self.currify_preorder_call(eliminate_iff,
+                                         eliminate_implication,
+                                         apply_demorgans_law,
+                                         verbose=verbose)
+
+        while res.satisfy_condition(lambda node: node.val == '|' and (
+                node.right.val == '&' or node.left.val == '&')):
+            res = res.currify_preorder_call(distribute_or, verbose=verbose)
 
         cnf_list = seperate_conjunctions(res)
 
         cnf_list = [s for s in cnf_list if not is_contradiction(s)]
 
         return cnf_list
+
+
+def bnf2cnf(bnf_list):
+    q = [*bnf_list]
+    processed = []
+    while q:
+        node = q.pop()
+        if node.is_operator:
+            q.append(node.left)
+            q.append(node.right)
+        else:
+            processed.append(node)
 
 
 def get_args():
@@ -234,13 +273,18 @@ def get_args():
 
 
 def bnf_parser(s: str, op=BNF_OPERATORS) -> N:
+    string = s.strip()
     if not op:
-        return N(val=s.strip())
-    idx = s.rfind(op[0])  # rightmost
+        if string[0] == '!':
+            return N(val=string[1:], neg=True)
+        else:
+            return N(val=string)
+    idx = string.rfind(op[0])  # rightmost
     if idx == -1:
         # 1st operator not found
-        return bnf_parser(s, op[1:])
-    return N(bnf_parser(s[:idx]), op[0], bnf_parser(s[idx + len(op[0]):]))
+        return bnf_parser(string, op[1:])
+    return N(bnf_parser(string[:idx]), op[0],
+             bnf_parser(string[idx + len(op[0]):]))
 
 
 def parse_file(filename, parser):
@@ -255,14 +299,28 @@ def bnf2cnf(bnf_list, verbose=False) -> list[N]:
 if __name__ == '__main__':
     args = get_args()
 
-    if args.mode == 'cnf':
-        cnf_list = bnf2cnf(parse_file(args.input_file, bnf_parser),
-                           verbose=args.v)
-        for s in cnf_list:
-            print(s.to_cnf_str())
+    if args.t:
+        # x = bnf_parser('!A & !B')
+        # x = bnf_parser('!(A & B)')
+        x = N(N(val='A', neg=True), '&', N(val='B'), True)
+        x.visualize()
+        x.print()
+        print(x.to_cnf_str())
+        # bnf_list = parse_file(args.input_file, bnf_parser)
+        # bnf_list[0].visualize()
+        # bnf_list[0].print()
 
-    elif args.mode == 'dpll':
-        pass
-    elif args.mode == 'solver':
-        cnf_list = bnf2cnf(parse_file(args.input_file, bnf_parser),
-                           verbose=args.v)
+    else:
+        if args.mode == 'cnf':
+            cnf_list = bnf2cnf(parse_file(args.input_file, bnf_parser),
+                               verbose=args.v)
+            for s in cnf_list:
+                s.print()
+                # s.visualize()
+                # print(s.to_cnf_str())
+
+        elif args.mode == 'dpll':
+            pass
+        elif args.mode == 'solver':
+            cnf_list = bnf2cnf(parse_file(args.input_file, bnf_parser),
+                               verbose=args.v)
