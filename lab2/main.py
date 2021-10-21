@@ -461,19 +461,23 @@ if __name__ == '__main__':
 
     elif args.mode == 'dpll':
         cnf = CNF(parse_file(args.input_file, lambda x: x))
-        # print_list(cnf.clauses, 'clauses')
         if args.v:
             cnf.print_clauses()
 
-        c = deepcopy(cnf)
         sat = cnf.dpll(verbose=args.v)
         print(f'Satisfiable: {sat}')
         cnf.print_literals()
-        c.literals = cnf.literals
-        print(f'Evaluate test: {c.evaluate()}')
-        # print_list(cnf.unit_clauses, 'unit_clauses')
 
         pass
     elif args.mode == 'solver':
         cnf_list = bnf2cnf(parse_file(args.input_file, bnf_parser),
                            verbose=args.v)
+
+        cnf = CNF([s.to_cnf_str() for s in cnf_list])
+
+        if args.v:
+            cnf.print_clauses()
+
+        sat = cnf.dpll(verbose=args.v)
+        print(f'Satisfiable: {sat}')
+        cnf.print_literals()
