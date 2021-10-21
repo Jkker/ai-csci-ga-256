@@ -1,26 +1,24 @@
 {
-  // Use IntelliSense to learn about possible attributes.
-  // Hover to view descriptions of existing attributes.
-  // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
-  "version": "0.2.0",
-  "configurations": [
-    {
-      "name": "Python: AI Lab1",
-      "type": "python",
-      "request": "launch",
-      "program": "${file}",
-      "console": "integratedTerminal",
-      "args": [
-        "./lab1/ex1.txt",
-        "-start",
-        "S",
-        "-alg",
-        "ID",
-        "-end",
-        "G",
-        "-depth",
-        "1"
-      ]
-    }
-  ]
+	// Use IntelliSense to learn about possible attributes.
+	// Hover to view descriptions of existing attributes.
+	// For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+	"version": "0.2.0",
+	"configurations": [
+		{
+			"name": "Python: AL Lab 2",
+			"type": "python",
+			"request": "launch",
+			"program": "${file}",
+			"console": "integratedTerminal",
+			"args": ["-mode", "dpll", "-v", "./lab2/data/CNF_ex1.txt"]
+		},
+		{
+			"name": "Python: AI Lab 1",
+			"type": "python",
+			"request": "launch",
+			"program": "${file}",
+			"console": "integratedTerminal",
+			"args": ["./lab1/ex1.txt", "-start", "S", "-alg", "ID", "-end", "G", "-depth", "1"]
+		}
+	]
 }
