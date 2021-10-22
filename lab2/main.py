@@ -2,6 +2,7 @@ import argparse
 import queue as libqueue
 from copy import deepcopy
 
+# BNF Tree
 BNF_OPERATORS = ['<=>', '=>', '|', '&', '!']
 
 
@@ -207,7 +208,7 @@ class BNFTreeNode:
             return res
 
         if verbose:
-            self.print('parsed input expression')
+            self.print('🔰 Input expression')
             self.visualize()
 
         res = self.currify_preorder_call(eliminate_iff,
@@ -224,6 +225,9 @@ class BNFTreeNode:
         cnf_list = [s for s in cnf_list if not is_contradiction(s)]
 
         return cnf_list
+
+
+# Argument & Input File Parser
 
 
 def get_args():
@@ -257,8 +261,7 @@ def parse_file(filename, parser):
         return [parser(line.strip()) for line in f.readlines()]
 
 
-def bnf2cnf(bnf_list, verbose=False) -> list:
-    return sum([bnf.to_cnf(verbose=verbose) for bnf in bnf_list], [])
+# CNF Helper Functions
 
 
 def is_unit_clause(clause: list) -> bool:
@@ -279,6 +282,12 @@ def key_of(literal: str) -> str:
     return literal.replace('!', '')
 
 
+def print_list(l, title, sep=','):
+    if not title: print(sep.join(l))
+    else: print(f'{title}: {sep.join(l)}')
+
+
+# CNF Data Structure
 class CNF:
     literals = dict()
     clauses = []
@@ -312,7 +321,8 @@ class CNF:
 
     def print_literals(self):
         print('Literals:')
-        print(self.literals)
+        for key, value in self.literals.items():
+            print(f'{key} = {value}')
 
     def assign_literal(self, literal, value):
         key = literal.replace('!', '')
@@ -441,23 +451,20 @@ class CNF:
         false_branch = deepcopy(self)
         if verbose: print('Branch at literal', literal)
         self.propogate(literal, True, verbose, f'Branch {literal} = True')
-        false_branch.propogate(literal, False, verbose, f'Branch {literal} = False')
+        false_branch.propogate(literal, False, verbose,
+                               f'Branch {literal} = False')
         return self.dpll(verbose, i + 1) or false_branch.dpll(verbose, i + 1)
 
-
-def print_list(l, title, sep=','):
-    if not title: print(sep.join(l))
-    else: print(f'{title}: {sep.join(l)}')
 
 
 if __name__ == '__main__':
     args = get_args()
 
     if args.mode == 'cnf':
-        cnf_list = bnf2cnf(parse_file(args.input_file, bnf_parser),
-                           verbose=args.v)
-        for s in cnf_list:
-            print(s.to_cnf_str())
+        bnf_list = parse_file(args.input_file, bnf_parser)
+        cnf_list = sum([bnf.to_cnf(verbose=args.v) for bnf in bnf_list], [])
+        for clause in cnf_list:
+            print(clause.to_cnf_str())
 
     elif args.mode == 'dpll':
         cnf = CNF(parse_file(args.input_file, lambda x: x))
@@ -465,13 +472,13 @@ if __name__ == '__main__':
             cnf.print_clauses()
 
         sat = cnf.dpll(verbose=args.v)
-        print(f'Satisfiable: {sat}')
+        print(f'⭐Satisfiable: {sat}')
         cnf.print_literals()
 
         pass
     elif args.mode == 'solver':
-        cnf_list = bnf2cnf(parse_file(args.input_file, bnf_parser),
-                           verbose=args.v)
+        bnf_list = parse_file(args.input_file, bnf_parser)
+        cnf_list = sum([bnf.to_cnf(verbose=args.v) for bnf in bnf_list], [])
 
         cnf = CNF([s.to_cnf_str() for s in cnf_list])
 
@@ -479,5 +486,5 @@ if __name__ == '__main__':
             cnf.print_clauses()
 
         sat = cnf.dpll(verbose=args.v)
-        print(f'Satisfiable: {sat}')
+        print(f'⭐Satisfiable: {sat}')
         cnf.print_literals()
