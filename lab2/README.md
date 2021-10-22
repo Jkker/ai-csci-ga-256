@@ -14,7 +14,6 @@ It is not necessary to compile my code as it is written in Python.
 
 ```sh
 cd lab2/
-chmod +x run.sh
 ./run.sh
 ```
 
@@ -22,9 +21,12 @@ chmod +x run.sh
 
 ```sh
 python3 main.py data/BNF_ex1.txt -mode cnf -v
+python3 main.py data/BNF_ex2.txt -mode cnf -v
 
+python3 main.py data/CNF_ex1.txt -mode dpll -v
 python3 main.py data/CNF_ex2.txt -mode dpll -v
 
+python3 main.py data/BNF_ex1.txt -mode solver -v
 python3 main.py data/BNF_ex2.txt -mode solver -v
 ```
 
