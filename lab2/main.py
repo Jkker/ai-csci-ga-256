@@ -305,7 +305,7 @@ class CNF:
 
     def __str__(self):
         return '\n'.join([
-            'Literals: ' + str(self.literals), '\n'.join(
+            'Literals: ' + str(self.literals), 'Clauses: ', '\n'.join(
                 [f'{" ".join(clause)}' for clause in self.clauses])
         ]) + '\n'
 
