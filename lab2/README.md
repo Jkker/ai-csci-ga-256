@@ -10,7 +10,7 @@ It is not necessary to compile my code as it is written in Python.
 
 ## Running the Code
 
-### For batch testing of the provided example 1 and 2
+### For batch testing with example 1 and 2
 
 ```sh
 cd lab2/
