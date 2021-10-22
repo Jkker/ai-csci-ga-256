@@ -208,7 +208,7 @@ class BNFTreeNode:
             return res
 
         if verbose:
-            self.print('🔰 Input expression')
+            self.print('Input expression')
             self.visualize()
 
         res = self.currify_preorder_call(eliminate_iff,
@@ -456,7 +456,6 @@ class CNF:
         return self.dpll(verbose, i + 1) or false_branch.dpll(verbose, i + 1)
 
 
-
 if __name__ == '__main__':
     args = get_args()
 
@@ -472,7 +471,7 @@ if __name__ == '__main__':
             cnf.print_clauses()
 
         sat = cnf.dpll(verbose=args.v)
-        print(f'⭐Satisfiable: {sat}')
+        print(f'Satisfiable: {sat}')
         cnf.print_literals()
 
         pass
@@ -486,5 +485,5 @@ if __name__ == '__main__':
             cnf.print_clauses()
 
         sat = cnf.dpll(verbose=args.v)
-        print(f'⭐Satisfiable: {sat}')
+        print(f'Satisfiable: {sat}')
         cnf.print_literals()
