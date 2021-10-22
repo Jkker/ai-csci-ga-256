@@ -380,7 +380,7 @@ class CNF:
 
         self.assign_literal(literal, value)
         if verbose:
-            print(f'Assign {literal} = {str(value)} by {reason}')
+            print(f'Propogate with {literal} = {str(value)} by {reason}')
 
         for c in self.clauses:
             if literal in c:
@@ -450,9 +450,8 @@ class CNF:
         literal = self.unassigned_literals.pop()
         false_branch = deepcopy(self)
         if verbose: print('Branch at literal', literal)
-        self.propogate(literal, True, verbose, f'Branch {literal} = True')
-        false_branch.propogate(literal, False, verbose,
-                               f'Branch {literal} = False')
+        self.propogate(literal, True, verbose, 'True branch')
+        false_branch.propogate(literal, False, verbose, 'False branch')
         return self.dpll(verbose, i + 1) or false_branch.dpll(verbose, i + 1)
 
 
