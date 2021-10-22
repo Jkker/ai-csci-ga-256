@@ -261,7 +261,7 @@ def bnf2cnf(bnf_list, verbose=False) -> list:
     return sum([bnf.to_cnf(verbose=verbose) for bnf in bnf_list], [])
 
 
-def is_unit_clause(clause: list[str]) -> bool:
+def is_unit_clause(clause: list) -> bool:
     return len(clause) == 1
 
 
