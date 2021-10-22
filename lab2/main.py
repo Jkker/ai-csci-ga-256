@@ -487,5 +487,8 @@ if __name__ == '__main__':
             cnf.print_clauses()
 
         sat = cnf.dpll(verbose=args.v)
-        print(f'Satisfiable: {sat}')
-        cnf.print_literals()
+        if sat:
+            if args.v: print(f'Satisfiable: {sat}')
+            cnf.print_literals()
+        else:
+            print('Unsatisfiable')
