@@ -257,7 +257,7 @@ def parse_file(filename, parser):
         return [parser(line.strip()) for line in f.readlines()]
 
 
-def bnf2cnf(bnf_list, verbose=False) -> list[BNFTreeNode]:
+def bnf2cnf(bnf_list, verbose=False) -> list:
     return sum([bnf.to_cnf(verbose=verbose) for bnf in bnf_list], [])
 
 
@@ -337,7 +337,7 @@ class CNF:
     def evaluate(self):
         return all(self.evaluate_clause(clause) for clause in self.clauses)
 
-    def get_pure_literals(self) -> list[str]:
+    def get_pure_literals(self) -> list:
         all_literals = set(sum(self.clauses, []))
         pure_literals = set()
         for literal in self.literals.keys():
