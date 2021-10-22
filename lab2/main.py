@@ -320,7 +320,7 @@ class CNF:
         print()
 
     def print_literals(self):
-        print('Literals:')
+        # print('Literals:')
         for key, value in self.literals.items():
             print(f'{key} = {value}')
 
@@ -470,10 +470,13 @@ if __name__ == '__main__':
             cnf.print_clauses()
 
         sat = cnf.dpll(verbose=args.v)
-        print(f'Satisfiable: {sat}')
-        cnf.print_literals()
 
-        pass
+        if sat:
+            if args.v: print(f'Satisfiable: {sat}')
+            cnf.print_literals()
+        else:
+            print('Unsatisfiable')
+
     elif args.mode == 'solver':
         bnf_list = parse_file(args.input_file, bnf_parser)
         cnf_list = sum([bnf.to_cnf(verbose=args.v) for bnf in bnf_list], [])
