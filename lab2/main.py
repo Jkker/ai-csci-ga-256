@@ -1,4 +1,5 @@
 import argparse
+import heapq
 import queue as libqueue
 from copy import deepcopy
 
@@ -170,14 +171,15 @@ class BNFTreeNode:
             return node
 
         def seperate_conjunctions(root: BNFTreeNode):
-            unprocessed = [root]
+            unprocessed = libqueue.Queue()
+            unprocessed.put(root)
             res = []
-            while unprocessed:
-                node = unprocessed.pop()
+            while not unprocessed.empty():
+                node = unprocessed.get()
 
                 if node.val == '&':
-                    if node.left: unprocessed.append(node.left)
-                    if node.right: unprocessed.append(node.right)
+                    if node.left: unprocessed.put(node.left)
+                    if node.right: unprocessed.put(node.right)
                 else: res.append(node)
             return res
 
@@ -236,7 +238,7 @@ def get_args():
     parser.add_argument("-t", action='store_true', help="test mode")
     parser.add_argument("-mode",
                         help="Program's mode",
-                        choices=['cnf', 'dpll', 'solver'])
+                        choices=['cnf', 'dpll', 'solver', 'test'])
     parser.add_argument(
         'input_file',
         help='A mode-dependent input file',
@@ -293,15 +295,22 @@ class CNF:
     clauses = []
     unassigned_literals = set()
 
-    def __init__(self, sentences) -> None:
-
+    def __init__(self, sentences, verbose=False) -> None:
+        self.verbose = verbose
+        if verbose: print('Parsing CNF input')
         for sentence in sentences:
             clause = sentence.strip().split(' ')
 
             for literal in clause:
-                self.assign_literal(literal, None)
+                if negate(literal) in clause:
+                    if verbose:
+                        print('Skip clause with contradiction: ', sentence)
+                    break
+            else:
+                for literal in clause:
+                    self.assign_literal(literal, None)
 
-            self.clauses.append(clause)
+                self.clauses.append(clause)
 
     def __str__(self):
         return '\n'.join([
@@ -319,8 +328,8 @@ class CNF:
                 print(' '.join(clause))
         print()
 
-    def print_literals(self):
-        # print('Literals:')
+    def print_literals(self, reason=None):
+        if reason: print(f'{reason}:', end=': ')
         for key, value in self.literals.items():
             print(f'{key} = {value}')
 
@@ -359,27 +368,27 @@ class CNF:
                 else:
                     pure_literals.add('!' + literal)
 
-        return pure_literals
+        return sorted(list(pure_literals))
 
-    def propogate(self, literal, value, verbose=False, reason=None):
+    def propogate(self, literal, value, reason=None):
         to_be_removed = []
 
         def mark_true_clause_for_removal(c, literal):
-            if verbose:
+            if self.verbose:
                 print(
-                    f'{reason}: remove clause ({" ".join(c)}) containing literal {literal}'
+                    f'{reason}: remove True clause ({" ".join(c)}) containing literal {literal}'
                 )
             to_be_removed.append(c)
 
         def remove_false_literal(c, l):
-            if verbose:
+            if self.verbose:
                 print(
-                    f'{reason}: remove literal {l} from clause ({" ".join(c)})'
+                    f'{reason}: remove False literal {l} from clause ({" ".join(c)})'
                 )
             c.remove(l)
 
         self.assign_literal(literal, value)
-        if verbose:
+        if self.verbose:
             print(f'Propogate with {literal} = {str(value)} due to {reason}')
 
         for c in self.clauses:
@@ -400,8 +409,11 @@ class CNF:
         for c in to_be_removed:
             self.clauses.remove(c)
 
-    def dpll(self, verbose=False, i=0) -> bool:
-        if verbose:
+        if self.verbose:
+            self.print_clauses()
+
+    def dpll(self, i=0) -> bool:
+        if self.verbose:
             print(f'\n======== Depth {i} ========')
             print(self)
 
@@ -409,10 +421,12 @@ class CNF:
             for literal in self.literals.keys():
                 if self.literals[literal] == None:
                     self.assign_literal(literal, False)
-                    if verbose:
+                    self.print_literals('SSS')
+                    if self.verbose:
                         print(f'Assign unbounded {literal} = False')
             return True
         elif any(len(clause) == 0 for clause in self.clauses):
+            if self.verbose: print('Contradiction! Backtrack')
             return False
 
         # Easy Case: unit propagation
@@ -420,39 +434,65 @@ class CNF:
             if is_unit_clause(clause):
                 ucl = clause[0]
                 self.clauses.remove(clause)
-                self.propogate(ucl, not is_negated(ucl), verbose,
+                self.propogate(key_of(ucl), not is_negated(ucl),
                                'Unit propagation')
                 if len(self.clauses) == 0:
                     for literal in self.literals.keys():
                         if self.literals[literal] == None:
                             self.assign_literal(literal, False)
-                            if verbose:
+                            # self.print_literals('unit propagation')
+                            if self.verbose:
                                 print(f'Assign unbounded {literal} = False')
                     return True
                 elif any(len(clause) == 0 for clause in self.clauses):
+                    if self.verbose: print('Contradiction! Backtrack')
                     return False
 
         # Easy Case: pure literal elimination
         for pl in self.get_pure_literals():
-            self.propogate(pl, not is_negated(pl), verbose,
+            self.propogate(key_of(pl), not is_negated(pl),
                            'Pure literal elimination')
             if len(self.clauses) == 0:
                 for literal in self.literals.keys():
                     if self.literals[literal] == None:
+                        # self.print_literals('pure literal elimination')
                         self.assign_literal(literal, False)
-                        if verbose:
+                        # self.print_literals('pure literal elimination')
+                        if self.verbose:
                             print(f'Assign unbounded {literal} = False')
                 return True
             elif any(len(clause) == 0 for clause in self.clauses):
+                if self.verbose: print('Contradiction! Backtrack')
                 return False
 
         # Hard Case
-        literal = self.unassigned_literals.pop()
+        literal = sorted(self.unassigned_literals)[0]
+        self.unassigned_literals.remove(literal)
+
         false_branch = deepcopy(self)
-        if verbose: print('Branch at literal', literal)
-        self.propogate(literal, True, verbose, 'branching True')
-        false_branch.propogate(literal, False, verbose, 'branching False')
-        return self.dpll(verbose, i + 1) or false_branch.dpll(verbose, i + 1)
+        false_branch.clauses = deepcopy(self.clauses)
+        false_branch.literals = deepcopy(self.literals)
+        false_branch.unassigned_literals = deepcopy(self.unassigned_literals)
+
+        if self.verbose: print('Branch at literal', literal)
+        self.propogate(literal, True, 'branching True')
+
+        if self.dpll(i + 1): return True
+
+        else:
+            false_branch.propogate(literal, False, 'branching False')
+            return false_branch.dpll(i + 1)
+
+
+def print_clauses(clauses):
+    if len(clauses) == 0:
+        print('Clauses: EMPTY\n')
+        return
+    else:
+        print('Clauses:')
+        for clause in clauses:
+            print(' '.join(clause))
+    print()
 
 
 if __name__ == '__main__':
@@ -465,11 +505,11 @@ if __name__ == '__main__':
             print(clause.to_cnf_str())
 
     elif args.mode == 'dpll':
-        cnf = CNF(parse_file(args.input_file, lambda x: x))
+        cnf = CNF(parse_file(args.input_file, lambda x: x), verbose=args.v)
         if args.v:
             cnf.print_clauses()
 
-        sat = cnf.dpll(verbose=args.v)
+        sat = cnf.dpll()
 
         if sat:
             if args.v: print(f'Satisfiable: {sat}')
@@ -481,14 +521,47 @@ if __name__ == '__main__':
         bnf_list = parse_file(args.input_file, bnf_parser)
         cnf_list = sum([bnf.to_cnf(verbose=args.v) for bnf in bnf_list], [])
 
-        cnf = CNF([s.to_cnf_str() for s in cnf_list])
+        cnf = CNF([s.to_cnf_str() for s in cnf_list], verbose=args.v)
 
         if args.v:
             cnf.print_clauses()
 
-        sat = cnf.dpll(verbose=args.v)
+        sat = cnf.dpll()
         if sat:
             if args.v: print(f'Satisfiable: {sat}')
             cnf.print_literals()
         else:
             print('Unsatisfiable')
+    elif args.mode == 'test':
+        # bnf_list = parse_file(args.input_file, bnf_parser)
+        # cnf_list = sum([bnf.to_cnf(verbose=args.v) for bnf in bnf_list], [])
+        # cnf = CNF([s.to_cnf_str() for s in cnf_list], verbose=args.v)
+        cnf = CNF(parse_file(args.input_file, lambda x: x), verbose=args.v)
+        cnf.literals = {
+            'P': True,
+            'Q': True,
+            'R': True,
+            'W': False,
+            'U': False,
+            'X': True
+        }
+        # cnf.literals = {
+        #     'P': False,
+        #     'Q': False,
+        #     'R': False,
+        #     'W': False,
+        #     'X': False
+        # }
+        # cnf.literals = {
+        #     'A': True,
+        #     'B': True,
+        #     'C': False,
+        #     'P': False,
+        #     'Q': True,
+        #     'W': False
+        # }
+        cnf.print_literals()
+        for clause in cnf.clauses:
+            print(' '.join(clause), ' => ', cnf.evaluate_clause(clause))
+
+        print('Sat: ', cnf.evaluate())
