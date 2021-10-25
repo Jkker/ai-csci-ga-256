@@ -9,6 +9,10 @@ echo "> python3 main.py data/CNF_ex1.txt -mode dpll"
 python3 main.py data/CNF_ex1.txt -mode dpll
 echo "> python3 main.py data/CNF_ex2.txt -mode dpll"
 python3 main.py data/CNF_ex2.txt -mode dpll
+echo "> python3 main.py data/CNF_ex3.txt -mode dpll"
+python3 main.py data/CNF_ex3.txt -mode dpll
+echo "> python3 main.py data/CNF_ex4.txt -mode dpll"
+python3 main.py data/CNF_ex4.txt -mode dpll
 
 echo "> python3 main.py data/BNF_ex1.txt -mode solver"
 python3 main.py data/BNF_ex1.txt -mode solver

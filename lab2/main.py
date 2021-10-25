@@ -210,7 +210,7 @@ class BNFTreeNode:
             return res
 
         if verbose:
-            self.print('Input expression')
+            self.print('Input BNF Expression')
             self.visualize()
 
         res = self.currify_preorder_call(eliminate_iff,
@@ -289,15 +289,161 @@ def print_list(l, title, sep=','):
     else: print(f'{title}: {sep.join(l)}')
 
 
-# CNF Data Structure
-class CNF:
-    literals = dict()
-    clauses = []
-    unassigned_literals = set()
+def DPLL(sentences, verbose=False):
+    # Helper
+    def print_clauses(clauses):
+        if len(clauses) == 0:
+            print('Clauses: EMPTY\n')
+            return
+        else:
+            print()
+            for clause in clauses:
+                if clause: print(' '.join(clause))
+                else: print('Empty Clause')
+        print()
 
-    def __init__(self, sentences, verbose=False) -> None:
-        self.verbose = verbose
-        if verbose: print('Parsing CNF input')
+    def print_literals(literals):
+        for key in sorted(literals.keys()):
+            print(f'{key} = {literals[key]}')
+
+    # Eval
+    def evaluate_literal(literals, literal):
+        if is_negated(literal):
+            return not literals[literal[1:]]
+        else:
+            return literals[literal]
+
+    def evaluate_clause(literals, clause):
+        return any(evaluate_literal(literals, literal) for literal in clause)
+
+    # Functional getters
+    def get_pure_literal(clauses, literals):
+        all_literals = set(sum(clauses, []))
+        for literal in sorted(literals.keys()):
+            positive_occurance = literal in all_literals
+            negative_occurance = negate(literal) in all_literals
+            if positive_occurance ^ negative_occurance:  # XOR
+                if positive_occurance:
+                    return (negate(literal),
+                            False) if is_negated(literal) else (literal, True)
+                else:
+                    return (negate(literal),
+                            True) if is_negated(literal) else (literal, False)
+        return None, None
+
+    def get_unit_clause(clauses):
+        for clause in clauses:
+            if len(clause) == 1:
+                return key_of(clause[0]), not is_negated(clause[0])
+        return None, None
+
+    def get_unassigned_literal(literals):
+        for key in sorted(literals.keys()):
+            if literals[key] == None:
+                return key
+        return None
+
+    def propogate(prev_clauses, target, value, reason=None):
+        to_be_removed = []
+        clauses = deepcopy(prev_clauses)
+
+        def mark_true_clause_for_removal(c, l):
+            if verbose:
+                print(
+                    f'{reason}: remove True clause ({" ".join(c)}) containing literal {l}'
+                )
+            to_be_removed.append(c)
+
+        def remove_false_literal(c, l):
+            if verbose:
+                print(
+                    f'{reason}: remove False literal {l} from clause ({" ".join(c)})'
+                )
+            c.remove(l)
+
+        if verbose:
+            print(f'Propogate with {target} = {str(value)} due to {reason}')
+
+        for c in clauses:
+            if target in c:
+                if value:
+                    mark_true_clause_for_removal(c, target)
+                    continue
+                else:
+                    remove_false_literal(c, target)
+
+            negation = negate(target)
+            if negation in c:
+                if value:
+                    remove_false_literal(c, negation)
+                else:
+                    mark_true_clause_for_removal(c, negation)
+                    continue
+
+        for c in to_be_removed:
+            clauses.remove(c)
+
+        if verbose:
+            print_clauses(clauses)
+
+        return clauses
+
+    def recur(clauses, literals, verbose=False, depth=0):
+        if verbose:
+            print(f'\n======== DPLL Depth {depth} ========')
+
+        if not get_unassigned_literal(literals) and all(
+                evaluate_clause(literals, c) for c in clauses):
+            if verbose: print('\n\nSATISFIABLE')
+            print_literals(literals)
+            return True
+
+        elif not get_unassigned_literal(literals) and not any(
+                evaluate_clause(literals, c) for c in clauses):
+            if verbose: print('\nUNSATISFIABLE')
+            return False
+
+        if len(clauses) == 0:
+            for literal in literals.keys():
+                if literals[literal] == None:
+                    literals[literal] = False
+                    if verbose:
+                        print(f'Assign unbounded {literal} = False')
+            if verbose: print('\n\nSATISFIABLE')
+            print_literals(literals)
+            return True
+
+        p, v = get_pure_literal(clauses, literals)
+        if p:
+            new_clauses = propogate(clauses, p, v, 'Pure literal elimination')
+            new_literals = literals.copy()
+            new_literals[p] = v
+            return recur(new_clauses, new_literals, verbose, depth + 1)
+
+        p, v = get_unit_clause(clauses)
+        if p:
+            new_clauses = propogate(clauses, p, v, 'Unit propagation')
+            new_literals = literals.copy()
+            new_literals[p] = v
+            return recur(new_clauses, new_literals, verbose, depth + 1)
+
+        p = get_unassigned_literal(literals)
+        if p:
+            new_literals = literals.copy()
+            new_literals[p] = True
+            if recur(propogate(clauses, p, True, 'branching True'),
+                     new_literals, verbose, depth + 1):
+                return True
+            else:
+                new_literals[p] = False
+                return recur(propogate(clauses, p, False, 'branching False'),
+                             new_literals, verbose, depth + 1)
+
+    def init(sentences):
+        clauses = []
+        literals = dict()
+        if verbose:
+            print('DPLL CNF Input: ')
         for sentence in sentences:
             clause = sentence.strip().split(' ')
 
@@ -308,191 +454,16 @@ class CNF:
                     break
             else:
                 for literal in clause:
-                    self.assign_literal(literal, None)
+                    literals[key_of(literal)] = None
 
-                self.clauses.append(clause)
+                clauses.append(clause)
+        if verbose:
+            print_clauses(clauses)
+        return clauses, literals
 
-    def __str__(self):
-        return '\n'.join([
-            'Literals: ' + str(self.literals), 'Clauses: ', '\n'.join(
-                [f'{" ".join(clause)}' for clause in self.clauses])
-        ]) + '\n'
+    clauses, literals = init(sentences)
 
-    def print_clauses(self):
-        if len(self.clauses) == 0:
-            print('Clauses: EMPTY\n')
-            return
-        else:
-            print('Clauses:')
-            for clause in self.clauses:
-                print(' '.join(clause))
-        print()
-
-    def print_literals(self, reason=None):
-        if reason: print(f'{reason}:', end=': ')
-        for key, value in self.literals.items():
-            print(f'{key} = {value}')
-
-    def assign_literal(self, literal, value):
-        key = literal.replace('!', '')
-
-        if value is None:
-            self.unassigned_literals.add(key)
-
-        elif key in self.unassigned_literals:
-            self.unassigned_literals.remove(key)
-
-        self.literals[key] = value
-
-    def evaluate_literal(self, literal):
-        if is_negated(literal):
-            return not self.literals[literal[1:]]
-        else:
-            return self.literals[literal]
-
-    def evaluate_clause(self, clause):
-        return any(self.evaluate_literal(literal) for literal in clause)
-
-    def evaluate(self):
-        return all(self.evaluate_clause(clause) for clause in self.clauses)
-
-    def get_pure_literals(self) -> list:
-        all_literals = set(sum(self.clauses, []))
-        pure_literals = set()
-        for literal in self.literals.keys():
-            positive_occurance = literal in all_literals
-            negative_occurance = negate(literal) in all_literals
-            if positive_occurance ^ negative_occurance:  # XOR
-                if positive_occurance:
-                    pure_literals.add(literal)
-                else:
-                    pure_literals.add('!' + literal)
-
-        return sorted(list(pure_literals))
-
-    def propogate(self, literal, value, reason=None):
-        to_be_removed = []
-
-        def mark_true_clause_for_removal(c, literal):
-            if self.verbose:
-                print(
-                    f'{reason}: remove True clause ({" ".join(c)}) containing literal {literal}'
-                )
-            to_be_removed.append(c)
-
-        def remove_false_literal(c, l):
-            if self.verbose:
-                print(
-                    f'{reason}: remove False literal {l} from clause ({" ".join(c)})'
-                )
-            c.remove(l)
-
-        self.assign_literal(literal, value)
-        if self.verbose:
-            print(f'Propogate with {literal} = {str(value)} due to {reason}')
-
-        for c in self.clauses:
-            if literal in c:
-                if value:
-                    mark_true_clause_for_removal(c, literal)
-                    continue
-                else:
-                    remove_false_literal(c, literal)
-            negation = negate(literal)
-            if negation in c:
-                if value:
-                    remove_false_literal(c, negation)
-                else:
-                    mark_true_clause_for_removal(c, negation)
-                    continue
-
-        for c in to_be_removed:
-            self.clauses.remove(c)
-
-        if self.verbose:
-            self.print_clauses()
-
-    def dpll(self, i=0) -> bool:
-        if self.verbose:
-            print(f'\n======== Depth {i} ========')
-            print(self)
-
-        if len(self.clauses) == 0:
-            for literal in self.literals.keys():
-                if self.literals[literal] == None:
-                    self.assign_literal(literal, False)
-                    self.print_literals('SSS')
-                    if self.verbose:
-                        print(f'Assign unbounded {literal} = False')
-            return True
-        elif any(len(clause) == 0 for clause in self.clauses):
-            if self.verbose: print('Contradiction! Backtrack')
-            return False
-
-        # Easy Case: unit propagation
-        for clause in self.clauses:
-            if is_unit_clause(clause):
-                ucl = clause[0]
-                self.clauses.remove(clause)
-                self.propogate(key_of(ucl), not is_negated(ucl),
-                               'Unit propagation')
-                if len(self.clauses) == 0:
-                    for literal in self.literals.keys():
-                        if self.literals[literal] == None:
-                            self.assign_literal(literal, False)
-                            # self.print_literals('unit propagation')
-                            if self.verbose:
-                                print(f'Assign unbounded {literal} = False')
-                    return True
-                elif any(len(clause) == 0 for clause in self.clauses):
-                    if self.verbose: print('Contradiction! Backtrack')
-                    return False
-
-        # Easy Case: pure literal elimination
-        for pl in self.get_pure_literals():
-            self.propogate(key_of(pl), not is_negated(pl),
-                           'Pure literal elimination')
-            if len(self.clauses) == 0:
-                for literal in self.literals.keys():
-                    if self.literals[literal] == None:
-                        # self.print_literals('pure literal elimination')
-                        self.assign_literal(literal, False)
-                        # self.print_literals('pure literal elimination')
-                        if self.verbose:
-                            print(f'Assign unbounded {literal} = False')
-                return True
-            elif any(len(clause) == 0 for clause in self.clauses):
-                if self.verbose: print('Contradiction! Backtrack')
-                return False
-
-        # Hard Case
-        literal = sorted(self.unassigned_literals)[0]
-        self.unassigned_literals.remove(literal)
-
-        false_branch = deepcopy(self)
-        false_branch.clauses = deepcopy(self.clauses)
-        false_branch.literals = deepcopy(self.literals)
-        false_branch.unassigned_literals = deepcopy(self.unassigned_literals)
-
-        if self.verbose: print('Branch at literal', literal)
-        self.propogate(literal, True, 'branching True')
-
-        if self.dpll(i + 1): return True
-
-        else:
-            false_branch.propogate(literal, False, 'branching False')
-            return false_branch.dpll(i + 1)
-
-
-def print_clauses(clauses):
-    if len(clauses) == 0:
-        print('Clauses: EMPTY\n')
-        return
-    else:
-        print('Clauses:')
-        for clause in clauses:
-            print(' '.join(clause))
-    print()
+    return recur(clauses, literals, verbose)
 
 
 if __name__ == '__main__':
@@ -505,63 +476,14 @@ if __name__ == '__main__':
             print(clause.to_cnf_str())
 
     elif args.mode == 'dpll':
-        cnf = CNF(parse_file(args.input_file, lambda x: x), verbose=args.v)
-        if args.v:
-            cnf.print_clauses()
-
-        sat = cnf.dpll()
-
-        if sat:
-            if args.v: print(f'Satisfiable: {sat}')
-            cnf.print_literals()
-        else:
-            print('Unsatisfiable')
+        if not DPLL(parse_file(args.input_file, lambda x: x), verbose=args.v):
+            print('UNSATISFIABLE')
 
     elif args.mode == 'solver':
         bnf_list = parse_file(args.input_file, bnf_parser)
         cnf_list = sum([bnf.to_cnf(verbose=args.v) for bnf in bnf_list], [])
+        if not DPLL([s.to_cnf_str() for s in cnf_list], verbose=args.v):
+            print('UNSATISFIABLE')
 
-        cnf = CNF([s.to_cnf_str() for s in cnf_list], verbose=args.v)
-
-        if args.v:
-            cnf.print_clauses()
-
-        sat = cnf.dpll()
-        if sat:
-            if args.v: print(f'Satisfiable: {sat}')
-            cnf.print_literals()
-        else:
-            print('Unsatisfiable')
     elif args.mode == 'test':
-        # bnf_list = parse_file(args.input_file, bnf_parser)
-        # cnf_list = sum([bnf.to_cnf(verbose=args.v) for bnf in bnf_list], [])
-        # cnf = CNF([s.to_cnf_str() for s in cnf_list], verbose=args.v)
-        cnf = CNF(parse_file(args.input_file, lambda x: x), verbose=args.v)
-        cnf.literals = {
-            'P': True,
-            'Q': True,
-            'R': True,
-            'W': False,
-            'U': False,
-            'X': True
-        }
-        # cnf.literals = {
-        #     'P': False,
-        #     'Q': False,
-        #     'R': False,
-        #     'W': False,
-        #     'X': False
-        # }
-        # cnf.literals = {
-        #     'A': True,
-        #     'B': True,
-        #     'C': False,
-        #     'P': False,
-        #     'Q': True,
-        #     'W': False
-        # }
-        cnf.print_literals()
-        for clause in cnf.clauses:
-            print(' '.join(clause), ' => ', cnf.evaluate_clause(clause))
-
-        print('Sat: ', cnf.evaluate())
+        pass

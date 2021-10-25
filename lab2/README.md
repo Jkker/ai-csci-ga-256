@@ -19,37 +19,84 @@ cd lab2/
 
 #### Expected Output
 
-> Note: DPLL output is NOT consistent due to random selection of unassigned literal in a hard case
-
 ```sh
+> python3 main.py data/BNF_ex1.txt -mode cnf
+!A !P Q W
+!B !C !P Q W
+!W A B
+!W A C
+P A B
+P A C
+!Q A B
+!Q A C
+!A B
+C B
+C A
 > python3 main.py data/BNF_ex2.txt -mode cnf
-!C !B A
 !C !A B
-!B !A C
+!C !B A
 A B C
+!B !A C
 A !B
 > python3 main.py data/CNF_ex1.txt -mode dpll
-A = False
+A = True
 B = True
 C = False
 P = False
-Q = True
+❯ ./run.sh
+> python3 main.py data/BNF_ex1.txt -mode cnf
+!A !P Q W
+!B !C !P Q W
+!W A B
+!W A C
+P A B
+P A C
+!Q A B
+!Q A C
+!A B
+C B
+C A
+> python3 main.py data/BNF_ex2.txt -mode cnf
+!C !A B
+!C !B A
+A B C
+!B !A C
+A !B
+> python3 main.py data/CNF_ex1.txt -mode dpll
+A = True
+B = True
+C = False
+P = False
+Q = False
 W = False
 > python3 main.py data/CNF_ex2.txt -mode dpll
 A = True
-B = False
-C = True
-> python3 main.py data/BNF_ex1.txt -mode solver
 B = True
 C = True
-P = True
+> python3 main.py data/CNF_ex3.txt -mode dpll
+P = False
+Q = True
+R = False
+U = True
+W = False
+X = False
+> python3 main.py data/CNF_ex4.txt -mode dpll
+P = False
+Q = False
+R = False
+W = False
+X = False
+> python3 main.py data/BNF_ex1.txt -mode solver
+A = True
+B = True
+C = False
+P = False
 Q = False
 W = False
-A = False
 > python3 main.py data/BNF_ex2.txt -mode solver
-C = True
-B = False
 A = True
+B = True
+C = True
 ```
 
 ### Using CLI
@@ -60,6 +107,8 @@ python3 main.py data/BNF_ex2.txt -mode cnf -v
 
 python3 main.py data/CNF_ex1.txt -mode dpll -v
 python3 main.py data/CNF_ex2.txt -mode dpll -v
+python3 main.py data/CNF_ex3.txt -mode dpll -v
+python3 main.py data/CNF_ex4.txt -mode dpll -v
 
 python3 main.py data/BNF_ex1.txt -mode solver -v
 python3 main.py data/BNF_ex2.txt -mode solver -v
