@@ -15,5 +15,5 @@ python3 mdp.py data/student.txt
 echo "> python3 mdp.py data/student2.txt"
 python3 mdp.py data/student2.txt
 
-echo "> python3 mdp.py data/teach.txt"
-python3 mdp.py data/teach.txt
+echo "> python3 mdp.py data/teach.txt -df 0.9"
+python3 mdp.py data/teach.txt -df 0.9

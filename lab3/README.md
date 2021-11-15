@@ -31,7 +31,7 @@ python3 mdp.py data/student.txt
 
 python3 mdp.py data/student2.txt
 
-python3 mdp.py data/teach.txt
+python3 mdp.py data/teach.txt -df 0.9
 ```
 
 #### Note
