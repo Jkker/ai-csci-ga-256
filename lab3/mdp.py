@@ -1,12 +1,9 @@
 import argparse
-import heapq
-import queue as libqueue
 from copy import deepcopy
-import numpy as np
-# Argument & Input File Parser
 import random
 
 
+# Argument & Input File Parser
 def get_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('-df', type=float, default=1.0)
@@ -65,30 +62,38 @@ def parse_input(input_file):
     return nodes, edges, values, probs
 
 
+# Helper Functions
+def print_dict(d, title=None):
+    if title: print('====== ' + title + ' ======')
+    for k in sorted(d.keys()):
+        v = d[k]
+        if type(v) == str: print('{:>10s}  ->  {:<10s}'.format(k, v))
+        else: print('{:>10s}  =  {:<10.3f}'.format(k, v))
+    print()
+
 class G:
     def __init__(self,
                  states,
                  edges,
                  rewards,
                  probs,
-                 df=1.0,
-                 tol=0.01,
+                 discount_factor=1.0,
+                 tolerance=0.01,
                  max_iter=100,
+                 minimize_rewards=False,
                  verbose=False):
         self.verbose = verbose
-        self.df = df
-        self.tol = tol
+        self.df = discount_factor
+        self.tol = tolerance
         self.max_iter = max_iter
         self.states = states
-
-        # self.adj = dict(
-        #     (name, dict((adj, 0) for adj in states)) for name in states)
+        self.optimize = min if minimize_rewards else max
 
         self.transitions = dict()
         self.rewards = rewards or {s: 0 for s in states}
         self.probs = dict()
         self.typeof = dict()
-        if verbose: print('\n==== MDP INITIALIZATION ====')
+        if verbose: print('\n====== MDP INITIALIZATION ======')
         for s in states:
             if not s in probs and not s in edges and s in rewards:  # terminal node
                 self.typeof[s] = 'terminal'
@@ -147,41 +152,41 @@ class G:
                     )
                 # self.probs[s] = dict((outcome, p) for outcome, p in zip(edges[s], probs[s]))
 
-    def T(self, state, action=None):
+    def T(self, state, action=None):  # get transition matrix
         if self.typeof[state] == 'chance':
             return self.probs[state]
-            # return [(p, s) for s, p in self.probs[state].items()]
         if self.typeof[state] == 'decision':
             return self.transitions[state][action]
         return [(0, state)]
 
-    def A(self, state):
-        return list(self.transitions[state].keys()
-                    ) if state in self.transitions else []
+    def A(self, state):  # get actions
+        return list(self.transitions[state].keys()) if state in self.transitions else []
 
-    def R(self, state):
+    def R(self, state):  # get rewards
         return self.rewards[state] if state in self.rewards else 0
 
-    def q_value(self, state, action, utility):
+    def bellman(self, state, action, values):  # use Bellman Equation to evaluate an action to a state
         if self.typeof[state] == 'terminal':
             return self.R(state)
         res = 0
-        for p, s_prime in self.T(state, action):
-            res += p * (self.R(state) + self.df * utility[s_prime])
+        for p, next_state in self.T(state, action):
+            res += p * (self.R(state) + self.df * values[next_state])
         return res
 
-    def value_eval(self, state, utility):
+    def state_eval(self, state, values):  # compute value of a state
         if self.typeof[state] == 'terminal':
             return self.R(state)
 
         if self.typeof[state] == 'chance':
-            return self.q_value(state, None, utility)
+            return self.bellman(state, None, values)
 
         if self.typeof[state] == 'decision':
-            return max(self.q_value(state, a, utility) for a in self.A(state))
+            return self.optimize(
+                self.bellman(state, a, values) for a in self.A(state))
 
+    # Value Iteration
     def value_iter(self):
-        if self.verbose: print('\n==== MDP VALUE ITERATION ====')
+        if self.verbose: print('\n====== MDP VALUE ITERATION ======')
 
         values = {s: 0 for s in self.states}
         for i in range(self.max_iter):
@@ -191,9 +196,9 @@ class G:
 
             for s in self.states:
 
-                values[s] = self.value_eval(s, curr_values)
+                values[s] = self.state_eval(s, curr_values)
 
-                delta = max(delta, abs(curr_values[s] - values[s]))
+                delta = self.optimize(delta, abs(curr_values[s] - values[s]))
 
             if delta <= self.tol * (1 - self.df) / self.df:
                 if self.verbose:
@@ -203,6 +208,7 @@ class G:
         if self.verbose: print(f'Value iteration hits max iteration count {i}')
         return values
 
+    # Value computation of a given policy
     def policy_eval(self, policy, values):
         if self.verbose: print(f'Policy eval: {policy}')
         for i in range(self.max_iter):
@@ -212,25 +218,27 @@ class G:
                         state, policy[state] if state in policy else None))
         return values
 
+    # Policy Iteration
     def policy_iter(self):
-        if self.verbose: print('\n==== MDP POLICY ITERATION ====')
+        if self.verbose: print('\n====== MDP POLICY ITERATION ======')
 
-        R, T, A = self.R, self.T, self.A
+        q_value, A = self.bellman, self.A
 
         values = {s: 0 for s in self.states}
-        policy = {s: random.choice(A(s)) for s in self.transitions.keys()}
+        policy = {s: random.choice(self.A(s)) for s in self.transitions.keys()}
         for i in range(self.max_iter):
             values = self.policy_eval(policy, values)
             policy_stable = True
 
             for decision_node in self.transitions.keys():
-                best_action = max(A(decision_node),
-                                  key=lambda action: self.q_value(
-                                      decision_node, action, values))
+                best_action = self.optimize(self.A(decision_node),
+                                            key=lambda action: q_value(
+                                                decision_node, action, values))
                 if self.verbose:
                     print(f'Best action for {decision_node}: {best_action}')
-                if self.q_value(
-                        decision_node, best_action, values) > self.q_value(
+
+                if q_value(
+                        decision_node, best_action, values) > q_value(
                             decision_node, policy[decision_node], values):
                     policy[decision_node] = best_action
                     policy_stable = False
@@ -241,72 +249,34 @@ class G:
                 return policy, values
 
 
-def print_dict(d, title=None):
-    if title: print('==== ' + title + ' ====')
-    for k in sorted(d.keys()):
-        # print(f'{k}={v}')
-        v = d[k]
-        if type(v) == str: print('{:>10s}  ->  {:<10s}'.format(k, v))
-        else: print('{:>10s}  =  {:<10.3f}'.format(k, v))
-    print()
 
 
 def main():
     args = get_args()
-    nodes, edges, values, probs = parse_input(args.input_file)
+    nodes, edges, rewards, probs = parse_input(args.input_file)
     if args.v:
-        print('==== PARSED INPUT ====')
-        print('nodes', nodes)
-        print('values', values)
-        print('probs', probs)
-        print('edges', edges)
+        print('====== PARSED INPUT ======')
+        print('NODES', nodes)
+        print('REWARDS', rewards)
+        print('PROBS', probs)
+        print('EDGES', edges)
         print()
 
     g = G(nodes,
           edges,
-          values,
+          rewards,
           probs,
           verbose=args.v,
-          df=args.df,
+          discount_factor=args.df,
           max_iter=args.iter,
-          tol=args.tol)
+          minimize_rewards=args.min,
+          tolerance=args.tol)
     # print_dict(g.value_iter(), 'Value Iteration')
     p, v = g.policy_iter()
     if args.v:
         print()
-    print_dict(p, 'BEST POLICY')
+    print_dict(p, 'OPTIMAL POLICY')
     print_dict(v, 'STATE VALUES')
-
-
-def test2():
-    args = get_args()
-    # input_file = 'lab3/data/restaurant.txt'
-    # input_file = 'lab3/data/publish.txt'
-    # input_file = 'lab3/data/student.txt'
-    input_file = 'lab3/data/student2.txt'
-    nodes, edges, values, probs = parse_input(input_file)
-    if args.v:
-        print('nodes', nodes)
-        print('values', values)
-        print('probs', probs)
-        print('edges', edges)
-    print()
-    g = G(nodes, edges, values, probs, verbose=True)
-    print_dict(g.value_iter(), 'Value Iteration')
-    p, v = g.policy_iter()
-    print_dict(p, 'Best Policy')
-    print_dict(v, 'Policy Iteration Values')
-    # print(json.dumps(g.transitions, sort_keys=True))
-    # print(json.dumps(g.value_iter(), sort_keys=True, indent=4))
-    # print(json.dumps(p, sort_keys=True, indent=4))
-    # print(json.dumps(v, sort_keys=True, indent=4))
-    # ss = g.get_states_from_transitions(g.transitions)
-    # print(ss)
-
-    # mdp = MDP(nodes, edges, values, probs)
-
 
 if __name__ == '__main__':
     main()
-    # test()
-    # test2()
