@@ -3,7 +3,6 @@ import os
 from knn import KNN
 from io import StringIO
 import sys
-from knn_sklearn import sklearn_knn
 
 
 class Capturing(list):
@@ -25,7 +24,7 @@ def test_knn(path, v=False, n=None, sk=False):
     test_sets = [f for f in l if 'test' in f]
 
     proj = ['knn1', 'knn2', 'knn3']
-    r = run_sk if sk else run
+    # r = run_sk if sk else run
 
     if n is not None:
         proj = [proj[n - 1]]
@@ -44,7 +43,7 @@ def test_knn(path, v=False, n=None, sk=False):
             unitw = 'unit' in task
             k = int(task.split('.')[3] if unitw else task.split('.')[2])
 
-            y_pred, logs = r(k, train, test, dist_func, unitw)
+            y_pred, logs = run(k, train, test, dist_func, unitw)
 
             test_passed = diff(os.path.join('data', task), logs, v)
             if not test_passed:
@@ -81,10 +80,10 @@ def run(*args):
     return ret, output
 
 
-def run_sk(*args):
-    with Capturing() as output:
-        ret = sklearn_knn(*args)
-    return ret, output
+# def run_sk(*args):
+#     with Capturing() as output:
+#         ret = sklearn_knn(*args)
+#     return ret, output
 
 
 def get_args():
