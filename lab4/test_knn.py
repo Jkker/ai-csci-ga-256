@@ -37,7 +37,7 @@ def test_knn(path, v=False, n=None, sk=False):
         tasks = [f for f in l if 'out' in f and p in f]
 
         for task in tasks:
-            if v: print('🔰 ' + task + '\n')
+            if v: print('TASK ' + task + '\n')
 
             dist_func = task.split('.')[1]
             unitw = 'unit' in task
@@ -53,11 +53,11 @@ def test_knn(path, v=False, n=None, sk=False):
             if v: print('\n')
 
         if failed:
-            print(f'\n🌋 {p.upper()} FAILED ({len(failed)}/{len(tasks)}): ' +
+            print(f'\n× {p.upper()} FAILED ({len(failed)}/{len(tasks)}): ' +
                   ', '.join(failed) + '\n')
         else:
             if v: print('\n')
-            print(f'✅ {p.upper()} PASSED')
+            print(f'√ {p.upper()} PASSED')
 
 
 def diff(filename, logs, v=False):
@@ -67,7 +67,7 @@ def diff(filename, logs, v=False):
             if a.strip() != b.strip():
                 same = False
                 if v:
-                    print(b.replace('\n', ''), '❗Answer:', a.replace('\n', ''))
+                    print(b.replace('\n', ''), '=> Answer:', a.replace('\n', ''))
             else:
                 if v: print(a, end='')
     return same
