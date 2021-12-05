@@ -44,6 +44,8 @@ cd lab4/
 python3 test_knn.py
 ```
 
+Note: add `-v` flag for verbose output
+
 ### Running a single KNN example
 
 ```sh
@@ -65,7 +67,3 @@ chmod +x run_kmeans.sh
 ```sh
 python3 kmeans.py -d e2 -data data/km1.txt 0,0 200,200 500,500
 ```
-
-#### Note
-
-Add `-v` flag for verbose output
