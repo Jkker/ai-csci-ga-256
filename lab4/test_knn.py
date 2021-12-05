@@ -53,11 +53,11 @@ def test_knn(path, v=False, n=None, sk=False):
             if v: print('\n')
 
         if failed:
-            print(f'\n× {p.upper()} FAILED ({len(failed)}/{len(tasks)}): ' +
+            print(f'\n{p.upper()} FAILED ({len(failed)}/{len(tasks)}): ' +
                   ', '.join(failed) + '\n')
         else:
             if v: print('\n')
-            print(f'√ {p.upper()} PASSED')
+            print(f'{p.upper()} PASSED')
 
 
 def diff(filename, logs, v=False):
