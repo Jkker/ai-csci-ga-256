@@ -99,6 +99,5 @@ def get_args():
 
 
 if __name__ == '__main__':
-    sys.stdout.buffer.write(chr(9986).encode('utf8'))
     args = get_args()
     test_knn('data', args.v, args.n, args.sk)

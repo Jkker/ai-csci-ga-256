@@ -2,8 +2,6 @@ import numpy as np
 import csv
 import sys
 
-sys.stdout.buffer.write(chr(9986).encode('utf8'))
-
 
 def manhatton(x, y):
     return np.sum(np.abs(x - y))
@@ -16,7 +14,7 @@ def euclidean(x, y):
 def parse_input(input_file):
     X = []
     y = []
-    with open(input_file, mode ='r')as file:
+    with open(input_file, mode='r') as file:
         csvFile = csv.reader(file)
         for lines in csvFile:
             X.append(lines[:-1])
