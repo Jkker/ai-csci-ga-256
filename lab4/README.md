@@ -16,13 +16,15 @@ Python 3.9.5
 ### Using `pip`
 
 ```sh
-pip install numpy pandas
+pip install numpy
+# or
+pip install -r requirements.txt
 ```
 
 ### Using `conda`
 
 ```sh
-conda install numpy pandas
+conda install numpy
 ```
 
 ## Running KNN

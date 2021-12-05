@@ -1,5 +1,6 @@
 import numpy as np
-import pandas as pd
+import csv
+
 
 
 def manhatton(x, y):
@@ -11,7 +12,12 @@ def euclidean(x, y):
 
 
 def parse_input(input_file):
-    df = pd.read_csv(input_file, header=None)
-    values = np.asarray(df.iloc[:, :-1].values)
-    names = np.asarray(df.iloc[:, -1].values)
-    return values, names
+    X = []
+    y = []
+    with open(input_file, mode ='r')as file:
+        csvFile = csv.reader(file)
+        for lines in csvFile:
+            X.append(lines[:-1])
+            y.append(lines[-1])
+
+    return np.asarray(X, dtype=np.float64), np.asarray(y)
