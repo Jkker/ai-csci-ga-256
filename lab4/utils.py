@@ -1,6 +1,8 @@
 import numpy as np
 import csv
+import sys
 
+sys.stdout.buffer.write(chr(9986).encode('utf8'))
 
 
 def manhatton(x, y):
